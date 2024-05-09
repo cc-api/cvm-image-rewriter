@@ -46,8 +46,8 @@ GUEST_IMG=""
 DEFAULT_GUEST_IMG="${CURR_DIR}/output.qcow2"
 KERNEL=""
 DEFAULT_KERNEL="${CURR_DIR}/vmlinuz"
-VM_TYPE="td-1.0"
-BOOT_TYPE="direct"
+VM_TYPE="td"
+BOOT_TYPE="grub"
 DEBUG=false
 USE_VSOCK=false
 USE_SERIAL_CONSOLE=false
@@ -55,7 +55,10 @@ ROOT_PARTITION="/dev/vda1"
 KERNEL_CMD_NON_TD="root=${ROOT_PARTITION} rw console=hvc0"
 KERNEL_CMD_TD="${KERNEL_CMD_NON_TD}"
 MAC_ADDR=""
-QUOTE_TYPE=""
+
+# Get Quote will use configfs-tsm by default
+QUOTE_TYPE="tdvmcall"
+
 NET_CIDR="10.0.2.0/24"
 DHCP_START="10.0.2.15"
 
@@ -88,7 +91,7 @@ usage() {
 Usage: $(basename "$0") [OPTION]...
   -i <guest image file>     		Default is td-guest.qcow2 under current directory
   -k <kernel file>          		Default is vmlinuz under current directory
-  -t [legacy|efi|td-1.0|td-1.5|sgx]     VM Type, default is "td-1.0"
+  -t [legacy|efi|td]                VM Type, default is "td"
   -b [direct|grub]          		Boot type, default is "direct" which requires kernel binary specified via "-k"
   -p <Monitor port>         		Monitor via telnet
   -f <SSH Forward port>     		Host port for forwarding guest SSH
@@ -138,7 +141,7 @@ process_args() {
             n) NET_CIDR=$OPTARG;;
             a) DHCP_START=$OPTARG;;
             w) MROWNERCONFIG=$OPTARG;;
-	    u) HUGEPAGE_PATH=$OPTARG;;
+            u) HUGEPAGE_PATH=$OPTARG;;
             e) EXTRA_KERNEL_CMD=$OPTARG;;
             h) usage
                exit 0
@@ -199,9 +202,9 @@ process_args() {
 
     if [[ ${DEBUG} == true ]]; then
         OVMF="/usr/share/qemu/OVMF.debug.fd"
-	QEMU_CMD+=" -s -S "
-	KERNEL_CMD_NON_TD+=" nokaslr"
-	KERNEL_CMD_TD+=" nokaslr"
+        QEMU_CMD+=" -s -S "
+        KERNEL_CMD_NON_TD+=" nokaslr"
+        KERNEL_CMD_TD+=" nokaslr"
     fi
 
     if [[ -n ${QUOTE_TYPE} ]]; then
@@ -217,49 +220,26 @@ process_args() {
     fi
 
     case ${VM_TYPE} in
-        "td-1.0")
+        "td")
             cpu_tsc=$(grep 'cpu MHz' /proc/cpuinfo | head -1 | awk -F: '{print $2/1024}')
             if (( $(echo "$cpu_tsc < 1" |bc -l) )); then
                 PARAM_CPU+=",tsc-freq=1000000000"
             fi
             # Note: "pic=no" could only be used in TD mode but not for non-TD mode
-            PARAM_MACHINE+=",kernel_irqchip=split,memory-encryption=tdx"
+            PARAM_MACHINE+=",kernel_irqchip=split,confidential-guest-support=tdx"
             QEMU_CMD+=" -bios ${OVMF}"
-            QEMU_CMD+=" -object tdx-guest,sept-ve-disable=on,id=tdx"
+
+            # Get quote using configfs-tsm
             if [[ ${QUOTE_TYPE} == "tdvmcall" ]]; then
-                QEMU_CMD+=",quote-generation-service=vsock:2:4050"
-            fi
-            if [[ -n ${MROWNERCONFIG} ]]; then
-                QEMU_CMD+=",mrownerconfig=${MROWNERCONFIG}"
-            fi
-            if [[ ${DEBUG} == true ]]; then
-                QEMU_CMD+=",debug=on"
-            fi
-            ;;
-    	"td-1.5")
-            cpu_tsc=$(grep 'cpu MHz' /proc/cpuinfo | head -1 | awk -F: '{print $2/1024}')
-            if (( $(echo "$cpu_tsc < 1" |bc -l) )); then
-                PARAM_CPU+=",tsc-freq=1000000000"
-            fi
-            # Note: "pic=no" could only be used in TD mode but not for non-TD mode
-            PARAM_MACHINE+=",kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=ram1"
-            QEMU_CMD+=" -bios ${OVMF}"
-            QEMU_CMD+=" -object tdx-guest,sept-ve-disable=on,id=tdx"
-            if [[ ${QUOTE_TYPE} == "tdvmcall" ]]; then
-                QEMU_CMD+=",quote-generation-service=vsock:2:4050"
-            fi
-            if [[ -n ${MROWNERCONFIG} ]]; then
-                QEMU_CMD+=",mrownerconfig=${MROWNERCONFIG}"
-            fi
-            if [[ ${DEBUG} == true ]]; then
-                QEMU_CMD+=",debug=on"
-            fi
-            # When user specify a hugepage path, it will set hugetlb=on and use the user-defined path.
-            if [[ ${HUGEPAGE_PATH} == "" ]]; then
-                QEMU_CMD+=" -object memory-backend-memfd-private,id=ram1,size=${MEM}"
+                QEMU_CMD+=" -object '{\"qom-type\":\"tdx-guest\",\"id\":\"tdx\",\"quote-generation-socket\":{\"type\":\"vsock\",\"cid\":\"1\",\"port\":\"4050\"}}'"
             else
-                QEMU_CMD+=" -object memory-backend-memfd,id=ramhuge,size=${MEM},hugetlb=on,hugetlbsize=2M"
-                QEMU_CMD+=" -object memory-backend-memfd-private,id=ram1,size=${MEM},path=${HUGEPAGE_PATH},shmemdev=ramhuge"
+                QEMU_CMD+=" -object tdx-guest,id=tdx"
+            fi
+            if [[ -n ${MROWNERCONFIG} ]]; then
+                QEMU_CMD+=",mrownerconfig=${MROWNERCONFIG}"
+            fi
+            if [[ ${DEBUG} == true ]]; then
+                QEMU_CMD+=",debug=on"
             fi
             ;;
     	"efi")
@@ -272,13 +252,8 @@ process_args() {
             fi
             QEMU_CMD+=" -bios ${LEGACY_BIOS} "
             ;;
-        "sgx")
-            PARAM_MACHINE+=",sgx-epc.0.memdev=mem0,sgx-epc.0.node=0"
-            QEMU_CMD+=" -cpu host,+sgx-provisionkey,+sgxlc,+sgx1"
-            QEMU_CMD+=" -object memory-backend-epc,id=mem0,size=${SGX_EPC_SIZE},prealloc=on"
-            ;;
         *)
-            error "Invalid ${VM_TYPE}, must be [legacy|efi|td-1.0|td-1.5|sgx]"
+            error "Invalid ${VM_TYPE}, must be [legacy|efi|td]"
             ;;
     esac
 
