@@ -21,12 +21,6 @@ if [[ ! -d "$CVM_TDX_GUEST_REPO" ]]; then
     exit 0
 fi
 
-# Check if it is a valid TDX repo
-if ! compgen -G "$CVM_TDX_GUEST_REPO/linux-image-*intel-opt*.deb"; then
-    warn "SKIP: $CVM_TDX_GUEST_REPO is invalid."
-    exit 0
-fi
-
 info "TDX guest local repo $CVM_TDX_GUEST_REPO check passed"
 
 # Copy TDX local repo from host to guest
@@ -40,9 +34,7 @@ cat > "${CURR_DIR}/../cloud-init/x-shellscript/07-install-tdx-guest-kernel.sh" <
 
 PACKAGE_DIR=""$ARTIFACTS_GUEST"/$(basename "$CVM_TDX_GUEST_REPO")/"
 pushd \$PACKAGE_DIR || exit 0
-DEBIAN_FRONTEND=noninteractive apt install ./linux-image-unsigned-*.deb \
-./linux-modules-*.deb ./linux-headers-*.deb \
-./linux-intel-opt-headers-*.deb --allow-downgrades -y 
+DEBIAN_FRONTEND=noninteractive apt install ./linux*.deb --allow-downgrades -y 
 popd || exit 0
 EOL
 
