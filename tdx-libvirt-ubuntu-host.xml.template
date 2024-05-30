@@ -32,8 +32,9 @@
       <source file='/path/to/image'/>
       <target dev='vda' bus='virtio'/>
     </disk>
-    <interface type="user">
-      <model type="virtio"/>
+    <interface type='bridge'>
+      <source bridge='virbr0'/>
+      <model type='virtio'/>
     </interface>
     <console type='pty'>
       <target type='virtio' port='0'/>
@@ -48,11 +49,12 @@
     </vsock>
   </devices>
   <allowReboot value='no'/>
-  <launchSecurity type='tdx'>
-    <policy>0x10000000</policy>
-  </launchSecurity>
   <qemu:commandline>
     <qemu:arg value='-cpu'/>
     <qemu:arg value='host,-kvm-steal-time'/>
+    <qemu:arg value='-machine'/>
+    <qemu:arg value='q35,kernel_irqchip=split,confidential-guest-support=tdx,hpet=off'/>
+    <qemu:arg value='-object'/>
+    <qemu:arg value='{&quot;qom-type&quot;:&quot;tdx-guest&quot;,&quot;id&quot;:&quot;tdx&quot;,&quot;quote-generation-socket&quot;:{&quot;type&quot;:&quot;vsock&quot;,&quot;cid&quot;:&quot;1&quot;,&quot;port&quot;:&quot;4050&quot;}}'/>
   </qemu:commandline>
 </domain>
