@@ -23,6 +23,8 @@ dont_measure  fsmagic=0x63677270
 # dont_measure obj_type=var_log_t
 # dont_measure obj_type=auditd_log_t
 # dont_measure obj_type=tmp_t
+# CONFIGFS_MAGIC
+dont_measure fsmagic=0x62656570
 
 # PROC_SUPER_MAGIC
 dont_appraise fsmagic=0x9fa0
