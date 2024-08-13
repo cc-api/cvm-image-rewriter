@@ -68,6 +68,13 @@ process_args() {
         exit 1
     fi
 
+    # If the domain exists for a shutdown VM, it is safe to delete it.
+    # This will also allow the VM to be created later without erroring out.
+    if virsh list  --state-shutoff | grep -q "tdx-guest "; then
+        echo ">Clean up domain for previously shutdown guest"
+	virsh undefine "${GUEST_NAME}" || true
+    fi
+
     if [[ ${FORCE} == "true" ]]; then
         echo "> Clean up the old guest... "
         virsh destroy "${GUEST_NAME}" || true
