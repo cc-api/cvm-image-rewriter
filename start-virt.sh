@@ -78,9 +78,7 @@ process_args() {
     fi
 
     if [[ -f ${GUEST_ROOTDIR}/${GUEST_NAME}.xml ]]; then
-        echo "Error: Guest XML ${GUEST_ROOTDIR}/${GUEST_NAME}.xml already exist."
-        echo "Error: you can delete the old one via 'rm ${GUEST_ROOTDIR}/${GUEST_NAME}.xml'"
-        exit 1
+	rm -rf  "${GUEST_ROOTDIR}/${GUEST_NAME}.xml" || true
     fi
 
     if [[ ! -f ${TEMPLATE} ]]; then
