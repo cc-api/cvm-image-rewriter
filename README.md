@@ -1,10 +1,10 @@
 # Confidential VM Customization Tool
 
-This tool is plugin-based and used to customize the confidential VM guest to meet user-specific requirements and [CCNP](https://github.com/cc-api/confidential-cloud-native-primitives) deployment requirements.
+This tool is plugin-based and used to customize the confidential VM guest to meet user-specific requirements and [CIMA](https://github.com/cc-api/container-integrity-measurement-agent) deployment requirements.
 
 It provides below plugins with different functions supported.
 
-| Name | Descriptions | Required for CCNP deployment |
+| Name | Descriptions | Required for CIMA deployment |
 | ---- | ------------ | ------------ |
 | 01-resize-image | Resize the input qcow2 image | N |
 | 02-motd-welcome | Customize the login welcome message | N |
@@ -13,8 +13,8 @@ It provides below plugins with different functions supported.
 | 05-readonly-data | Fix some file permission to ready-only | N |
 | 06-install-tdx-guest-kernel | Install user-specified TDX guest kernel | Y |
 | 07-device-permission | Set the permission for device node | Y |
-| 08-ccnp-uds-directory-permission | Set the permission for CCNP UDS directory | Y |
-| 09-ccnp-vsock-port | Prepare a VM sockets port for CCNP | Y |
+| 08-cima-uds-directory-permission | Set the permission for CIMA UDS directory | Y |
+| 09-cima-vsock-port | Prepare a VM sockets port for CIMA | Y |
 | 60-initrd-update | Update the initrd image | N |
 | 97-sample | Plugin customization example | N |
 | 98-ima-enable-simple | Enable IMA (Integrity Measurement Architecture) feature | N |
@@ -110,7 +110,7 @@ $ ./run.sh -i <initial guest image> -t 10
 
 **NOTE:**
   - All plugins need to be executed in numerical order.
-  - Plugin 06, 07, 08 and 09 are required for CCNP deployment.
+  - Plugin 06, 07, 08 and 09 are required for CIMA deployment.
   - Plugin 60 requires copying or generating all files to the root directory first. When users customize plugins, please ensure that the plugin number with this requirement is placed before 60.
   - Plugin 98 needs to be executed after all other plugins have completed. The number of the user-customized plugin must be before 98.
 
